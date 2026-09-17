@@ -1,0 +1,18 @@
+{
+  "name": "balance-game-server",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "밸런스 게임 앱의 투표 집계 API 서버 (Upstash Redis)",
+  "main": "vote.js",
+  "scripts": {
+    "start": "node vote.js",
+    "build": "echo 'no build step needed'"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@upstash/redis": "^1.38.4",
+    "express": "^5.2.1"
+  }
+}

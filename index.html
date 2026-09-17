@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>이거 vs 저거</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --blue:#4A5FE8;
+    --blue-deep:#2F3FB0;
+    --pink:#FF5C7A;
+    --pink-deep:#D93D5C;
+    --dark:#14162B;
+    --ink:#14162B;
+    --ink-soft:#5B5E7A;
+    --paper:#F5F4FB;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0; height:100%;}
+  body{
+    min-height:100dvh;
+    background:var(--dark);
+    font-family:'Noto Sans KR', sans-serif;
+    color:var(--ink);
+  }
+  .phone{
+    width:100%;
+    height:100dvh;
+    background:var(--paper);
+    overflow:hidden;
+    position:relative;
+    display:flex;
+    flex-direction:column;
+  }
+
+  /* top bar */
+  .topbar{
+    padding:16px 20px 10px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:var(--paper);
+    position:relative;
+    z-index:5;
+  }
+  .qcount{
+    font-family:'Black Han Sans', sans-serif;
+    font-size:15px;
+    color:var(--ink);
+    letter-spacing:0.02em;
+  }
+  .qcount b{color:var(--pink-deep);}
+  .reset-btn{
+    font-size:12px;
+    color:var(--ink-soft);
+    text-decoration:underline;
+    background:none;
+    border:none;
+    cursor:pointer;
+  }
+
+  .vote-error{
+    text-align:center;
+    font-size:12px;
+    color:#D93D5C;
+    min-height:16px;
+    padding:0 20px;
+  }
+
+  .loading-overlay{
+    position:absolute;
+    inset:0;
+    z-index:50;
+    background:var(--paper);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:14px;
+  }
+  .spin{
+    width:32px; height:32px;
+    border:3px solid #E4E3F2;
+    border-top-color:var(--blue);
+    border-radius:50%;
+    animation:spin 0.9s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg);} }
+  .loading-text{
+    font-size:13.5px;
+    color:var(--ink-soft);
+  }
+  .retry-btn{
+    font-family:'Black Han Sans', sans-serif;
+    font-size:13px;
+    color:#fff;
+    background:var(--blue);
+    border:none;
+    border-radius:999px;
+    padding:10px 22px;
+    cursor:pointer;
+  }
+
+  /* game area: split top/bottom */
+  .game{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    position:relative;
+  }
+  .choice{
+    flex:1;
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    overflow:hidden;
+    transition:flex-grow .5s cubic-bezier(.2,.8,.2,1);
+  }
+  .choice.top{ background:var(--blue); }
+  .choice.bottom{ background:var(--pink); }
+  .choice-inner{
+    text-align:center;
+    padding:20px;
+    position:relative;
+    z-index:2;
+    transition:transform .35s ease;
+  }
+  .choice-emoji{font-size:44px; margin-bottom:10px; display:block;}
+  .choice-text{
+    font-family:'Black Han Sans', sans-serif;
+    font-size:22px;
+    color:#fff;
+    line-height:1.35;
+    text-shadow:0 2px 10px rgba(0,0,0,0.15);
+  }
+  .choice-pct{
+    font-family:'Black Han Sans', sans-serif;
+    font-size:0px;
+    color:#fff;
+    margin-top:8px;
+    opacity:0;
+    transition:opacity .3s ease .3s, font-size .3s ease .3s;
+  }
+  .choice.revealed .choice-pct{
+    font-size:34px;
+    opacity:1;
+  }
+  .choice.revealed .choice-inner{ transform:translateY(0); }
+  .choice-fill{
+    position:absolute;
+    inset:0;
+    background:rgba(255,255,255,0.16);
+    transform:scaleX(0);
+    transform-origin:left;
+    transition:transform .7s cubic-bezier(.2,.8,.2,1);
+    z-index:1;
+  }
+  .choice.top .choice-fill{ transform-origin:left; }
+  .choice.bottom .choice-fill{ transform-origin:right; }
+  .choice.revealed .choice-fill{ transform:scaleX(var(--fill)); }
+  .choice.picked{ box-shadow:inset 0 0 0 5px rgba(255,255,255,0.85); }
+  .choice.not-picked{ filter:brightness(0.88); }
+
+  .vs-badge{
+    position:absolute;
+    top:50%; left:50%;
+    transform:translate(-50%,-50%);
+    width:56px; height:56px;
+    background:var(--paper);
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Black Han Sans', sans-serif;
+    font-size:15px;
+    color:var(--ink);
+    box-shadow:0 4px 14px rgba(0,0,0,0.25);
+    z-index:10;
+    border:3px solid var(--paper);
+  }
+
+  .next-wrap{
+    position:absolute;
+    bottom:0; left:0; right:0;
+    padding:18px 24px 24px;
+    display:flex;
+    justify-content:center;
+    z-index:10;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .3s ease .4s;
+  }
+  .game.revealed .next-wrap{ opacity:1; pointer-events:auto; }
+  .next-btn{
+    font-family:'Black Han Sans', sans-serif;
+    font-size:15px;
+    color:var(--dark);
+    background:#fff;
+    border:none;
+    border-radius:999px;
+    padding:13px 30px;
+    cursor:pointer;
+    box-shadow:0 10px 24px rgba(0,0,0,0.3);
+    transition:transform .12s ease;
+  }
+  .next-btn:active{ transform:scale(0.96); }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="spin"></div>
+    <div class="loading-text" id="loadingText">질문을 불러오는 중...</div>
+    <button class="retry-btn" id="retryBtn" style="display:none;">다시 시도</button>
+  </div>
+
+  <div class="topbar">
+    <div class="qcount"><b id="qNum">1</b> / <span id="qTotal">100</span>번째 질문</div>
+    <button class="reset-btn" onclick="resetGame()">처음부터</button>
+  </div>
+  <div class="vote-error" id="voteError"></div>
+
+  <div class="game" id="game">
+    <div class="choice top" id="choiceA" onclick="pick('A')">
+      <div class="choice-fill" id="fillA"></div>
+      <div class="choice-inner">
+        <span class="choice-emoji" id="emojiA">🍔</span>
+        <div class="choice-text" id="textA">평생 배달음식만 먹기</div>
+        <div class="choice-pct" id="pctA">58%</div>
+      </div>
+    </div>
+
+    <div class="vs-badge">VS</div>
+
+    <div class="choice bottom" id="choiceB" onclick="pick('B')">
+      <div class="choice-fill" id="fillB"></div>
+      <div class="choice-inner">
+        <span class="choice-emoji" id="emojiB">🍚</span>
+        <div class="choice-text" id="textB">평생 집밥만 먹기</div>
+        <div class="choice-pct" id="pctB">42%</div>
+      </div>
+    </div>
+
+    <div class="next-wrap">
+      <button class="next-btn" onclick="nextQuestion()">다음 질문 →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ⚠️ 배포한 백엔드의 실제 주소로 바꿔주세요. (예: 'https://balance-api.onrender.com')
+// 상대 경로는 토스 앱 웹뷰 안에서는 토스 호스트를 가리키기 때문에 동작하지 않아요.
+const API_BASE = "https://YOUR-BACKEND-DOMAIN.com";
+
+let questions = [];
+let order = [];
+let idx = 0;
+let answered = 0;
+let voting = false;
+
+function shuffle(arr){
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+async function fetchQuestions(){
+  const response = await fetch(`${API_BASE}/api/questions`, {
+    signal: AbortSignal.timeout(60000) // 무료 호스팅 콜드스타트(최대 ~50초)를 버틸 수 있게 넉넉히
+  });
+  if (!response.ok) throw new Error(`질문을 불러오지 못했어요: ${response.status}`);
+  const data = await response.json();
+  return data.questions;
+}
+
+async function submitVote(questionId, choice){
+  const response = await fetch(`${API_BASE}/api/vote`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ questionId, choice }),
+    signal: AbortSignal.timeout(20000)
+  });
+  if (!response.ok) throw new Error(`투표에 실패했어요: ${response.status}`);
+  return await response.json(); // { pctA, pctB, totalVotes }
+}
+
+function loadQuestion(){
+  const q = questions[order[idx]];
+  document.getElementById('emojiA').textContent = q.a.emoji;
+  document.getElementById('textA').textContent = q.a.text;
+  document.getElementById('emojiB').textContent = q.b.emoji;
+  document.getElementById('textB').textContent = q.b.text;
+  document.getElementById('pctA').textContent = '';
+  document.getElementById('pctB').textContent = '';
+
+  const game = document.getElementById('game');
+  const cA = document.getElementById('choiceA');
+  const cB = document.getElementById('choiceB');
+  game.classList.remove('revealed');
+  cA.classList.remove('revealed','picked','not-picked');
+  cB.classList.remove('revealed','picked','not-picked');
+
+  document.getElementById('qNum').textContent = idx + 1;
+}
+
+async function pick(which){
+  const game = document.getElementById('game');
+  if (game.classList.contains('revealed') || voting) return; // 이미 선택했거나 집계 중
+
+  voting = true;
+  const q = questions[order[idx]];
+
+  try {
+    const { pctA, pctB } = await submitVote(q.id, which);
+
+    document.getElementById('pctA').textContent = pctA + '%';
+    document.getElementById('pctB').textContent = pctB + '%';
+    document.getElementById('fillA').style.setProperty('--fill', pctA / 100);
+    document.getElementById('fillB').style.setProperty('--fill', pctB / 100);
+
+    const cA = document.getElementById('choiceA');
+    const cB = document.getElementById('choiceB');
+    cA.classList.add('revealed');
+    cB.classList.add('revealed');
+    game.classList.add('revealed');
+
+    if (which === 'A') { cA.classList.add('picked'); cB.classList.add('not-picked'); }
+    else { cB.classList.add('picked'); cA.classList.add('not-picked'); }
+
+    answered++;
+  } catch (e) {
+    console.error('투표 실패:', e);
+    document.getElementById('voteError').textContent = '결과를 불러오지 못했어요. 다시 시도해주세요';
+    setTimeout(() => { document.getElementById('voteError').textContent = ''; }, 2000);
+  } finally {
+    voting = false;
+  }
+}
+
+function nextQuestion(){
+  idx = (idx + 1) % order.length;
+  if (idx === 0) order = shuffle(questions.map((_, i) => i));
+  loadQuestion();
+}
+
+function resetGame(){
+  order = shuffle(questions.map((_, i) => i));
+  idx = 0;
+  answered = 0;
+  loadQuestion();
+}
+
+async function init(){
+  try {
+    questions = await fetchQuestions();
+    document.getElementById('qTotal').textContent = questions.length;
+    document.getElementById('loadingOverlay').style.display = 'none';
+    resetGame();
+  } catch (e) {
+    console.error('질문 로딩 실패:', e);
+    document.getElementById('loadingText').textContent = '불러오지 못했어요. 다시 시도해주세요';
+    document.getElementById('retryBtn').style.display = 'inline-block';
+  }
+}
+
+document.getElementById('retryBtn').addEventListener('click', () => {
+  document.getElementById('loadingText').textContent = '질문을 불러오는 중...';
+  document.getElementById('retryBtn').style.display = 'none';
+  init();
+});
+
+init();
+</script>
+</body>
+</body>
+</html>
