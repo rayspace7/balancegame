@@ -1,7 +1,7 @@
 import { defineConfig } from '@apps-in-toss/web-framework/config';
 
 export default defineConfig({
-  appName: 'balancegame',
+  appName: 'balancegameapp',
   brand: {
     primaryColor: '#4A5FE8',
   },

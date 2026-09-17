@@ -251,7 +251,13 @@
   </div>
 </div>
 
-<script>
+<script type="module">
+import { loadFullScreenAd, showFullScreenAd } from '@apps-in-toss/web-framework';
+
+function safeIsSupported(fn){
+  try { return !!fn(); } catch (e) { return false; }
+}
+
 // 배포된 백엔드 주소예요.
 const API_BASE = "https://balancegame-twyj.onrender.com";
 
@@ -343,10 +349,60 @@ async function pick(which){
   }
 }
 
-function nextQuestion(){
+// 앱인토스 콘솔에서 발급받은 실제 전면 광고 지면 ID예요.
+const AD_GROUP_ID_INTERSTITIAL = "ait.v2.live.da85083734c446d6";
+let interstitialLoaded = false;
+
+function preloadInterstitial(){
+  if (!safeIsSupported(() => loadFullScreenAd.isSupported())) return;
+  interstitialLoaded = false;
+  loadFullScreenAd({
+    options: { adGroupId: AD_GROUP_ID_INTERSTITIAL },
+    onEvent: (e) => { if (e.type === 'loaded') interstitialLoaded = true; },
+    onError: (e) => console.error('전면 광고 로드 실패:', e),
+  });
+}
+preloadInterstitial();
+
+/**
+ * 미리 불러둔 전면 광고를 보여준 뒤 콜백을 실행해요.
+ * 광고가 준비되지 않았거나 미지원 환경이면 광고 없이 바로 진행해요(사용자를 막지 않기 위해).
+ */
+function withInterstitialIfNeeded(proceed){
+  const shouldShowAd = interstitialLoaded && safeIsSupported(() => showFullScreenAd.isSupported());
+  if (!shouldShowAd) {
+    proceed();
+    return;
+  }
+  showFullScreenAd({
+    options: { adGroupId: AD_GROUP_ID_INTERSTITIAL },
+    onEvent: (e) => {
+      if (e.type === 'dismissed' || e.type === 'failedToShow') {
+        preloadInterstitial(); // 다음을 위해 다시 미리 불러둬요.
+        proceed();
+      }
+    },
+    onError: (e) => {
+      console.error('전면 광고 노출 실패:', e);
+      preloadInterstitial();
+      proceed();
+    },
+  });
+}
+
+function advanceToNext(){
   idx = (idx + 1) % order.length;
   if (idx === 0) order = shuffle(questions.map((_, i) => i));
   loadQuestion();
+}
+
+function nextQuestion(){
+  // 10문제마다(10, 20, ... 100번째 이후) 전면 광고를 보여줘요. 100번째 이후(한 바퀴 다 돈 뒤)도 포함돼요.
+  if (answered > 0 && answered % 10 === 0) {
+    withInterstitialIfNeeded(advanceToNext);
+  } else {
+    advanceToNext();
+  }
 }
 
 function resetGame(){
@@ -376,7 +432,10 @@ document.getElementById('retryBtn').addEventListener('click', () => {
 });
 
 init();
+
+window.resetGame = resetGame;
+window.pick = pick;
+window.nextQuestion = nextQuestion;
 </script>
-</body>
 </body>
 </html>
